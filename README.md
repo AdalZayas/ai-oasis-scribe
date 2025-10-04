@@ -60,7 +60,7 @@ run the following steps to set up the backend and frontend locally:
    - You can run the docker container that contains the llm's and the database:
 
    ```bash
-   docker compose -f docker-compose..yml up -d
+   docker compose -f docker-compose.yml up -d
    ```
 
    - Once the containers are up and running, you need to pull the Ollama model:
