@@ -14,8 +14,8 @@ Aplication for transcribing audio files using AI models.
 1. Clone the repository:
 
    ```bash
-   git clone <repository-url>
-    cd <repository-directory>
+   git clone https://github.com/AdalZayas/ai-oasis-scribe
+    cd ai-oasis-scribe
    ```
 
 2. You can run either using Docker or setting up a local environment.
