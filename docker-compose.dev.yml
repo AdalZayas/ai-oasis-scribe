@@ -1,0 +1,125 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: oasis_postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: oasis_db
+    ports:
+      - "9001:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - oasis_network
+  # Ollama for AI extraction
+  ollama:
+    image: ollama/ollama:latest
+    container_name: oasis_ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0:11434
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - oasis_network
+    restart: unless-stopped
+
+  # Whisper API for transcription
+  whisper:
+    image: onerahmet/openai-whisper-asr-webservice:latest
+    container_name: oasis_whisper
+    ports:
+      - "9010:9000"
+    environment:
+      - ASR_MODEL=base
+      - ASR_ENGINE=openai_whisper
+    volumes:
+      - whisper_data:/root/.cache
+    networks:
+      - oasis_network
+    restart: unless-stopped
+    # Uncomment if you have GPU
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    container_name: oasis_backend_dev
+    ports:
+      - "9090:3000"
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/oasis_db
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - WHISPER_BASE_URL=http://whisper:9000
+      - PORT=3000
+      - NODE_ENV=development
+      - LOG_LEVEL=debug
+      - CORS_ORIGIN=http://localhost:5174
+    volumes:
+      # Mount source code for hot reload
+      - ./backend/src:/app/src:ro
+      - ./backend/prisma:/app/prisma:ro
+      - ./backend/uploads:/app/uploads
+
+      - /app/node_modules
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ollama:
+        condition: service_started
+      whisper:
+        condition: service_started
+    networks:
+      - oasis_network
+    command: sh -c "npx prisma db push && npm run start:dev"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: oasis_frontend_dev
+    ports:
+      - "5174:5174"
+    environment:
+      - VITE_API_URL= http://localhost:9090
+      - VITE_API_BASE_URL=http://localhost:9090/api
+      - NODE_ENV=development
+    volumes:
+      # Mount source code for hot reload
+      - ./frontend/src:/app/src:ro
+      - ./frontend/public:/app/public:ro
+
+      - /app/node_modules
+    networks:
+      - oasis_network
+
+volumes:
+  postgres_data:
+    driver: local
+  ollama_data:
+    driver: local
+  whisper_data:
+    driver: local
+
+networks:
+  oasis_network:
+    driver: bridge

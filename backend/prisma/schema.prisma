@@ -1,0 +1,33 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Patient {
+  id        String  @id @default(cuid())
+  firstName String
+  lastName  String
+  dob       DateTime @map("date_of_birth")
+  mrn       String  @unique
+  notes     Note[]
+  createdAt DateTime @default(now())
+
+  @@map("patients")
+}
+
+model Note {
+  id           String   @id @default(cuid())
+  patientMRN    String
+  patient      Patient  @relation(fields: [patientMRN], references: [mrn])
+  audioPath    String
+  transcript   String
+  summary      String
+  oasis_g      Json
+  createdAt    DateTime  @default(now())
+
+  @@map("notes")
+}
